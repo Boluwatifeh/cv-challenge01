@@ -1,14 +1,39 @@
 version: '3.8'
 
 services:
+
+  traefik:
+      image: traefik:v2.10
+      container_name: traefik
+      command:
+        - "--api.insecure=true"
+        - "--providers.docker=true"
+        - "--providers.docker.exposedbydefault=false"
+        - "--entrypoints.web.address=:80"
+
+      ports:
+        - "80:80"   
+        - "8080:8080"  
+      volumes:
+        - "/var/run/docker.sock:/var/run/docker.sock:ro" 
+        - "traefik-certificates:/letsencrypt"
+      networks:
+        - traefik-network
+
   frontend:
     build:
       context: ./frontend  
       dockerfile: Dockerfile  
     ports:
       - "5173:5173"
+    
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.services.frontend-service.loadbalancer.server.port=5173"
     networks:
-      - app_network
+      - traefik-network
+
     depends_on:
       - backend
 
@@ -24,8 +49,16 @@ services:
       POSTGRES_SERVER: postgres-db 
       POSTGRES_PORT: 5432           
 
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.services.backend-service.loadbalancer.server.port=8000"
+      - "traefik.http.routers.docs.rule=PathPrefix(`/docs`)"
+
     networks:
+      - traefik-network
       - app_network
+
     depends_on:
       - postgres-db
 
@@ -43,6 +76,9 @@ services:
 networks:
   app_network:
     driver: bridge
+  traefik-network:
+    driver: bridge
 
 volumes:
   postgres-data:
+  traefik-certificates:
