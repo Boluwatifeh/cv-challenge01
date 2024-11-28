@@ -14,11 +14,23 @@ services:
       ports:
         - "80:80"   
         - "8080:8080"  
+    
       volumes:
         - "/var/run/docker.sock:/var/run/docker.sock:ro" 
         - "traefik-certificates:/letsencrypt"
       networks:
         - traefik-network
+
+  adminer:
+      image: adminer:latest
+      ports:
+        - 8081:8080
+      networks:     
+        - traefik-network
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.adminer.rule=Host(`db.localhost`)"
+        - "traefik.http.services.adminer.loadbalancer.server.port=8080"
 
   frontend:
     build:
@@ -31,6 +43,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
       - "traefik.http.services.frontend-service.loadbalancer.server.port=5173"
+
     networks:
       - traefik-network
 
@@ -57,7 +70,6 @@ services:
 
     networks:
       - traefik-network
-      - app_network
 
     depends_on:
       - postgres-db
@@ -72,6 +84,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - app_network
+      - traefik-network
 
 networks:
   app_network:
